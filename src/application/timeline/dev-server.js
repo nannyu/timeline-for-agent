@@ -250,11 +250,7 @@ async function rebuildTimelineDevSite(state, config) {
 
 function serveTimelineDevAsset(siteDir, requestPath, response, version) {
   const siteRoot = path.resolve(siteDir);
-  const filePath = path.resolve(siteRoot, requestPath);
-  const safePath = filePath.startsWith(siteRoot) ? filePath : path.join(siteRoot, "index.html");
-  const resolvedPath = fs.existsSync(safePath) && fs.statSync(safePath).isFile()
-    ? safePath
-    : path.join(siteRoot, "index.html");
+  const resolvedPath = resolveTimelineDevAssetPath(siteRoot, requestPath);
   if (!fs.existsSync(resolvedPath)) {
     response.writeHead(404, { "content-type": "text/plain; charset=utf-8" });
     response.end("timeline site not built");
@@ -309,6 +305,26 @@ function normalizeRequestPath(url) {
     return "index.html";
   }
   return pathname.replace(/^\/+/, "");
+}
+
+function resolveTimelineDevAssetPath(siteRoot, requestPath) {
+  const filePath = path.resolve(siteRoot, requestPath);
+  if (!filePath.startsWith(siteRoot)) {
+    return path.join(siteRoot, "index.html");
+  }
+  if (fs.existsSync(filePath)) {
+    const stats = fs.statSync(filePath);
+    if (stats.isFile()) {
+      return filePath;
+    }
+    if (stats.isDirectory()) {
+      const directoryIndexPath = path.join(filePath, "index.html");
+      if (fs.existsSync(directoryIndexPath) && fs.statSync(directoryIndexPath).isFile()) {
+        return directoryIndexPath;
+      }
+    }
+  }
+  return path.join(siteRoot, "index.html");
 }
 
 function detectMimeType(filePath) {
