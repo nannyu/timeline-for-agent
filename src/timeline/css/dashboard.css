@@ -32,8 +32,8 @@
   --cat-life-ink: #6d5a2d;
   --cat-work: #BEDAE3;
   --cat-work-ink: #3d5a64;
-  --cat-study: #C6DBDA;
-  --cat-study-ink: #3d5f5d;
+  --cat-study: #C4D4B1;
+  --cat-study-ink: #4d5b3a;
   --cat-exercise: #F3EA93;
   --cat-exercise-ink: #6b6426;
   --cat-entertainment: #FFD1DB;
@@ -129,13 +129,13 @@ input {
 
 .hero-card,
 .panel {
-  background-color: var(--panel);
+  background-color: var(--paper-2);
   background-image: var(--paper-grain);
   background-size: var(--paper-grain-size);
   background-position: var(--paper-grain-position);
-  border: 1px solid var(--panel-border);
-  border-radius: 28px;
-  box-shadow: var(--shadow);
+  border: 1px solid var(--rule-soft);
+  border-radius: 10px;
+  box-shadow: none;
 }
 
 .hero-card {
@@ -143,7 +143,7 @@ input {
   grid-template-columns: minmax(0, 1.05fr) minmax(0, 1.45fr);
   align-items: end;
   gap: 20px;
-  padding: 24px 26px;
+  padding: 20px 22px;
   margin-bottom: 16px;
 }
 
@@ -240,7 +240,7 @@ input {
 }
 
 .panel {
-  padding: 22px;
+  padding: 20px 22px;
   margin-bottom: 20px;
 }
 
