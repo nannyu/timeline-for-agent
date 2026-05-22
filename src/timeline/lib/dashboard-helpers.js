@@ -170,7 +170,24 @@ function buildScaledDepthColor(color, ratio) {
   return `color-mix(in srgb, ${color} ${colorWeight}%, white ${whiteWeight}%)`;
 }
 
+function buildMobileTimelineEntries(timeline) {
+  const items = Array.isArray(timeline?.items) ? timeline.items : [];
+  return [...items]
+    .sort((left, right) => Date.parse(left.start) - Date.parse(right.start))
+    .map((item) => ({
+      id: item.id,
+      title: item.tooltip?.title || "",
+      note: item.tooltip?.note || "",
+      dateText: item.tooltip?.dateText || "",
+      timeText: item.tooltip?.timeText || "",
+      durationText: item.tooltip?.durationText || "",
+      color: item.tooltip?.color || "var(--paper-edge)",
+      ink: item.tooltip?.ink || "var(--ink)",
+    }));
+}
+
 export {
+  buildMobileTimelineEntries,
   buildMonthTimeline,
   buildScaledDepthColor,
   formatCompactDuration,

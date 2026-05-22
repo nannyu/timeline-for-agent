@@ -89,6 +89,9 @@ function AnalyticsPanels({
   categoryDetail,
   chartAxisStroke,
   chartGridStroke,
+  enablePcTargets = true,
+  includeEvents = true,
+  isCompact = false,
   currentAggregate,
   currentRangeLabel,
   locale,
@@ -128,7 +131,7 @@ function AnalyticsPanels({
 
   return (
     <>
-      <section className="analytics-grid analytics-grid-top screenshot-target screenshot-target-analytics">
+      <section className={`analytics-grid analytics-grid-top ${enablePcTargets ? "screenshot-target screenshot-target-analytics" : ""}`.trim()}>
         <div className="panel chart-panel">
           <div className="panel-header">
             <div className="panel-title-group">
@@ -139,7 +142,7 @@ function AnalyticsPanels({
           {categories.length ? (
             <div className="pie-with-legend">
               <div className="pie-chart-shell">
-                <ResponsiveContainer width="100%" height={248}>
+                <ResponsiveContainer width="100%" height={isCompact ? 220 : 248}>
                   <PieChart accessibilityLayer={false} onMouseDown={handlePieChartPointerDown} onMouseUp={handlePieChartPointerCommit}>
                     <Pie
                       data={categories}
@@ -147,7 +150,7 @@ function AnalyticsPanels({
                       nameKey="label"
                       rootTabIndex={null}
                       innerRadius={0}
-                      outerRadius={98}
+                      outerRadius={isCompact ? 86 : 98}
                       paddingAngle={2}
                       stroke="none"
                       style={{ outline: "none" }}
@@ -197,7 +200,7 @@ function AnalyticsPanels({
           {styledSubcategories.length ? (
             <div className="pie-with-legend">
               <div className="pie-chart-shell">
-                <ResponsiveContainer width="100%" height={248}>
+                <ResponsiveContainer width="100%" height={isCompact ? 220 : 248}>
                   <PieChart accessibilityLayer={false} onMouseDown={handlePieChartPointerDown} onMouseUp={handlePieChartPointerCommit}>
                     <Pie
                       data={styledSubcategories}
@@ -205,7 +208,7 @@ function AnalyticsPanels({
                       nameKey="label"
                       rootTabIndex={null}
                       innerRadius={0}
-                      outerRadius={98}
+                      outerRadius={isCompact ? 86 : 98}
                       paddingAngle={2}
                       stroke="none"
                       style={{ outline: "none" }}
@@ -254,7 +257,7 @@ function AnalyticsPanels({
           </div>
           {activeDetail ? (
             <div className="trend-chart-shell">
-              <ResponsiveContainer width="100%" height={320}>
+              <ResponsiveContainer width="100%" height={isCompact ? 264 : 320}>
                 <BarChart data={activeDetail.trend} margin={{ top: 28, right: 8, bottom: 6, left: -12 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke={chartGridStroke} />
                   <XAxis dataKey="label" stroke={chartAxisStroke} />
@@ -278,26 +281,28 @@ function AnalyticsPanels({
         </div>
       </section>
 
-      <section className="detail-grid detail-grid-events screenshot-target screenshot-target-events">
-        <div className="panel chart-panel event-panel">
-          <div className="panel-header">
-            <div className="panel-title-group">
-              <h2>{getTimelineText(locale, "events")}</h2>
-              {activeDetail ? (
-                <span className="panel-context-pill" style={{ "--context-fill": activeDetail.color, "--context-ink": activeDetail.ink }}>
-                  {activeDetail.label}
-                </span>
-              ) : null}
+      {includeEvents ? (
+        <section className={`detail-grid detail-grid-events ${enablePcTargets ? "screenshot-target screenshot-target-events" : ""}`.trim()}>
+          <div className="panel chart-panel event-panel">
+            <div className="panel-header">
+              <div className="panel-title-group">
+                <h2>{getTimelineText(locale, "events")}</h2>
+                {activeDetail ? (
+                  <span className="panel-context-pill" style={{ "--context-fill": activeDetail.color, "--context-ink": activeDetail.ink }}>
+                    {activeDetail.label}
+                  </span>
+                ) : null}
+              </div>
+              <span>{currentRangeLabel}</span>
             </div>
-            <span>{currentRangeLabel}</span>
+            {activeDetail?.events?.length ? (
+              <EventBlockGrid events={activeDetail.events} color={activeDetail.color} ink={activeDetail.ink} />
+            ) : (
+              <div className="empty-state small">{getTimelineText(locale, "noEventDetails")}</div>
+            )}
           </div>
-          {activeDetail?.events?.length ? (
-            <EventBlockGrid events={activeDetail.events} color={activeDetail.color} ink={activeDetail.ink} />
-          ) : (
-            <div className="empty-state small">{getTimelineText(locale, "noEventDetails")}</div>
-          )}
-        </div>
-      </section>
+        </section>
+      ) : null}
     </>
   );
 }
@@ -316,8 +321,11 @@ function PieLegend({ items, locale }) {
           data-legend-label={item.label}
           style={{ "--legend-fill": item.color, "--legend-ink": item.ink || "var(--ink)" }}
         >
-          <span className="pie-legend-label">{item.label}</span>
-          <span className="pie-legend-metrics">{formatMinutes(item.minutes, locale)} · {formatPercent(item.percent)}</span>
+          <span className="pie-legend-label">
+            <span>{item.label}</span>
+            <span className="pie-legend-percent">{formatPercent(item.percent)}</span>
+          </span>
+          <span className="pie-legend-metrics">{formatMinutes(item.minutes, locale)}</span>
         </button>
       ))}
     </div>
@@ -353,7 +361,7 @@ function renderPieLabel({
   );
 }
 
-function EventBlockGrid({ events, color, ink }) {
+function EventBlockGrid({ events, color, ink, compact = false, onEventSelect = null }) {
   const maxMinutes = Math.max(...events.map((event) => Number(event.minutes || 0)), 1);
   return (
     <div className="event-block-grid">
@@ -362,9 +370,10 @@ function EventBlockGrid({ events, color, ink }) {
         return (
           <div
             key={event.eventNodeId}
-            className="event-block"
+            className={`event-block ${compact ? "event-block-compact" : ""}`.trim()}
             style={{ background: buildScaledDepthColor(color, ratio), color: ink }}
             title={`${event.fullLabel}\n${event.compactDuration}\n${event.note || ""}`}
+            onClick={onEventSelect ? () => onEventSelect(event) : undefined}
           >
             <div className="event-block-meta">
               <span>
@@ -383,4 +392,4 @@ function EventBlockGrid({ events, color, ink }) {
   );
 }
 
-export { AnalyticsPanels, HeaderStats };
+export { AnalyticsPanels, EventBlockGrid, HeaderStats };

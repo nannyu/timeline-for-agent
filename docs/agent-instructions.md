@@ -1,5 +1,11 @@
 # Agent Instructions
 
+项目结构和重构规范见：
+
+- `.codex/skills/timeline-for-agent/SKILL.md`
+
+这份文档继续负责 CLI 使用边界；项目实现、重构和移动端适配约束统一以 project skill 为准。
+
 这份说明给接入 `timeline-for-agent` 的 agent 使用。目标不是解释源码，而是约束 agent 优先走现成命令，只有在必要时才读实现。
 
 ## 目标
