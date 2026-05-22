@@ -146,7 +146,7 @@ function AnalyticsPanels({
                       dataKey="minutes"
                       nameKey="label"
                       rootTabIndex={null}
-                      innerRadius={58}
+                      innerRadius={0}
                       outerRadius={98}
                       paddingAngle={2}
                       stroke="none"
@@ -169,6 +169,7 @@ function AnalyticsPanels({
                   kind: "category",
                   label: category.label,
                   color: category.color,
+                  ink: category.ink,
                   minutes: category.minutes,
                   percent: category.percent,
                   active: selectedCategoryId === category.categoryId,
@@ -186,7 +187,7 @@ function AnalyticsPanels({
             <div className="panel-title-group">
               <h2>{getTimelineText(locale, "breakdown")}</h2>
               {categoryDetail ? (
-                <span className="panel-context-pill" style={{ "--context-color": categoryDetail.color }}>
+                <span className="panel-context-pill" style={{ "--context-fill": categoryDetail.color, "--context-ink": categoryDetail.ink }}>
                   {categoryDetail.label}
                 </span>
               ) : null}
@@ -203,7 +204,7 @@ function AnalyticsPanels({
                       dataKey="minutes"
                       nameKey="label"
                       rootTabIndex={null}
-                      innerRadius={58}
+                      innerRadius={0}
                       outerRadius={98}
                       paddingAngle={2}
                       stroke="none"
@@ -226,6 +227,7 @@ function AnalyticsPanels({
                   kind: "subcategory",
                   label: subcategory.label,
                   color: subcategory.shadeColor,
+                  ink: subcategory.ink,
                   minutes: subcategory.minutes,
                   percent: subcategory.percent,
                   active: selectedSubcategoryId === subcategory.subcategoryId,
@@ -243,7 +245,7 @@ function AnalyticsPanels({
             <div className="panel-title-group">
               <h2>{getTimelineText(locale, "trend")}</h2>
               {activeDetail ? (
-                <span className="panel-context-pill" style={{ "--context-color": activeDetail.color }}>
+                <span className="panel-context-pill" style={{ "--context-fill": activeDetail.color, "--context-ink": activeDetail.ink }}>
                   {activeDetail.label}
                 </span>
               ) : null}
@@ -258,7 +260,14 @@ function AnalyticsPanels({
                   <XAxis dataKey="label" stroke={chartAxisStroke} />
                   <YAxis stroke={chartAxisStroke} tickFormatter={formatMinutesTick} />
                   <Bar dataKey="minutes" fill={activeDetail.color} radius={[8, 8, 0, 0]}>
-                    <LabelList dataKey="minutes" position="top" offset={8} formatter={formatCompactDuration} className="trend-bar-label" />
+                    <LabelList
+                      dataKey="minutes"
+                      position="top"
+                      offset={8}
+                      formatter={formatCompactDuration}
+                      className="trend-bar-label"
+                      fill={activeDetail.ink}
+                    />
                   </Bar>
                 </BarChart>
               </ResponsiveContainer>
@@ -275,7 +284,7 @@ function AnalyticsPanels({
             <div className="panel-title-group">
               <h2>{getTimelineText(locale, "events")}</h2>
               {activeDetail ? (
-                <span className="panel-context-pill" style={{ "--context-color": activeDetail.color }}>
+                <span className="panel-context-pill" style={{ "--context-fill": activeDetail.color, "--context-ink": activeDetail.ink }}>
                   {activeDetail.label}
                 </span>
               ) : null}
@@ -283,7 +292,7 @@ function AnalyticsPanels({
             <span>{currentRangeLabel}</span>
           </div>
           {activeDetail?.events?.length ? (
-            <EventBlockGrid events={activeDetail.events} color={activeDetail.color} />
+            <EventBlockGrid events={activeDetail.events} color={activeDetail.color} ink={activeDetail.ink} />
           ) : (
             <div className="empty-state small">{getTimelineText(locale, "noEventDetails")}</div>
           )}
@@ -305,8 +314,8 @@ function PieLegend({ items, locale }) {
           data-legend-kind={item.kind || ""}
           data-legend-id={item.id}
           data-legend-label={item.label}
+          style={{ "--legend-fill": item.color, "--legend-ink": item.ink || "var(--ink)" }}
         >
-          <span className="dot" style={{ backgroundColor: item.color }} />
           <span className="pie-legend-label">{item.label}</span>
           <span className="pie-legend-metrics">{formatMinutes(item.minutes, locale)} · {formatPercent(item.percent)}</span>
         </button>
@@ -318,6 +327,7 @@ function PieLegend({ items, locale }) {
 function renderPieLabel({
   cx,
   cy,
+  fill,
   midAngle,
   outerRadius,
   percent,
@@ -332,7 +342,7 @@ function renderPieLabel({
     <text
       x={x}
       y={y}
-      fill="var(--muted)"
+      fill={`color-mix(in srgb, ${fill || "var(--ink-2)"} 52%, var(--ink))`}
       fontSize="12"
       fontWeight="500"
       textAnchor={textAnchor}
@@ -343,18 +353,17 @@ function renderPieLabel({
   );
 }
 
-function EventBlockGrid({ events, color }) {
+function EventBlockGrid({ events, color, ink }) {
   const maxMinutes = Math.max(...events.map((event) => Number(event.minutes || 0)), 1);
   return (
     <div className="event-block-grid">
       {events.map((event) => {
         const ratio = Math.max(0, Math.min(1, Number(event.minutes || 0) / maxMinutes));
-        const background = buildScaledDepthColor(color, ratio);
         return (
           <div
             key={event.eventNodeId}
             className="event-block"
-            style={{ background }}
+            style={{ background: buildScaledDepthColor(color, ratio), color: ink }}
             title={`${event.fullLabel}\n${event.compactDuration}\n${event.note || ""}`}
           >
             <div className="event-block-meta">

@@ -1,8 +1,10 @@
+const { resolveCategoryFill } = require("./category-theme");
+
 const DEFAULT_CATEGORIES = [
   {
     id: "life",
     label: "Life",
-    color: "var(--cat-life)",
+    color: resolveCategoryFill("life"),
     children: [
       { id: "life.meal", label: "Meals" },
       { id: "life.hygiene", label: "Hygiene" },
@@ -15,7 +17,7 @@ const DEFAULT_CATEGORIES = [
   {
     id: "work",
     label: "Work",
-    color: "var(--cat-work)",
+    color: resolveCategoryFill("work"),
     children: [
       { id: "work.coding", label: "Coding" },
       { id: "work.meeting", label: "Meetings" },
@@ -27,7 +29,7 @@ const DEFAULT_CATEGORIES = [
   {
     id: "study",
     label: "Study",
-    color: "var(--cat-study)",
+    color: resolveCategoryFill("study"),
     children: [
       { id: "study.reading", label: "Reading" },
       { id: "study.course", label: "Courses" },
@@ -39,7 +41,7 @@ const DEFAULT_CATEGORIES = [
   {
     id: "exercise",
     label: "Exercise",
-    color: "var(--cat-exercise)",
+    color: resolveCategoryFill("exercise"),
     children: [
       { id: "exercise.walk", label: "Walks" },
       { id: "exercise.workout", label: "Workouts" },
@@ -50,7 +52,7 @@ const DEFAULT_CATEGORIES = [
   {
     id: "entertainment",
     label: "Entertainment",
-    color: "var(--cat-entertainment)",
+    color: resolveCategoryFill("entertainment"),
     children: [
       { id: "entertainment.video", label: "Video" },
       { id: "entertainment.game", label: "Games" },
@@ -62,7 +64,7 @@ const DEFAULT_CATEGORIES = [
   {
     id: "health",
     label: "Health",
-    color: "var(--cat-health)",
+    color: resolveCategoryFill("health"),
     children: [
       { id: "health.rest", label: "Recovery" },
       { id: "health.medication", label: "Medication" },
@@ -74,7 +76,7 @@ const DEFAULT_CATEGORIES = [
   {
     id: "social",
     label: "Social",
-    color: "var(--cat-social)",
+    color: resolveCategoryFill("social"),
     children: [
       { id: "social.chat", label: "Chat" },
       { id: "social.call", label: "Calls" },
@@ -85,7 +87,7 @@ const DEFAULT_CATEGORIES = [
   {
     id: "care",
     label: "Care",
-    color: "var(--cat-care)",
+    color: resolveCategoryFill("care"),
     children: [
       { id: "care.pet", label: "Pet Care" },
       { id: "care.household", label: "Household Care" },
@@ -96,7 +98,7 @@ const DEFAULT_CATEGORIES = [
   {
     id: "travel",
     label: "Travel",
-    color: "var(--cat-travel)",
+    color: resolveCategoryFill("travel"),
     children: [
       { id: "travel.commute", label: "Commute" },
       { id: "travel.transit", label: "Transit" },
@@ -106,7 +108,7 @@ const DEFAULT_CATEGORIES = [
   {
     id: "rest",
     label: "Rest",
-    color: "var(--cat-rest)",
+    color: resolveCategoryFill("rest"),
     children: [
       { id: "rest.sleep", label: "Sleep" },
       { id: "rest.nap", label: "Nap" },

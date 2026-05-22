@@ -1,4 +1,5 @@
 const { getTimelineText, localizeTimelineTaxonomy, resolveTimelineLocale } = require("../i18n/timeline-locale");
+const { buildCategoryTheme } = require("./category-theme");
 
 let activeLocale = "en";
 
@@ -49,19 +50,6 @@ function buildTimelineViews(state, metaOverrides = {}, options = {}) {
   };
 }
 
-const CATEGORY_THEME_COLORS = {
-  life: "var(--cat-life)",
-  work: "var(--cat-work)",
-  study: "var(--cat-study)",
-  exercise: "var(--cat-exercise)",
-  entertainment: "var(--cat-entertainment)",
-  health: "var(--cat-health)",
-  social: "var(--cat-social)",
-  care: "var(--cat-care)",
-  travel: "var(--cat-travel)",
-  rest: "var(--cat-rest)",
-};
-
 function buildDayTimeline(date, day, categoryMap) {
   const events = Array.isArray(day?.events) ? day.events : [];
   return {
@@ -69,21 +57,25 @@ function buildDayTimeline(date, day, categoryMap) {
     start: `${date}T00:00:00.000+08:00`,
     end: `${date}T23:59:59.999+08:00`,
     groups: [],
-    items: events.map((event) => ({
-      id: event.id,
-      start: event.startAt,
-      end: event.endAt,
-      content: buildTimelineItemContent(event),
-      style: buildItemStyle(categoryMap.get(event.subcategoryId)?.color || categoryMap.get(event.categoryId)?.color || "#4E79A7"),
-      tooltip: {
-        title: event.title,
-        note: event.note || "",
-        color: categoryMap.get(event.subcategoryId)?.color || categoryMap.get(event.categoryId)?.color || "var(--cat-life)",
-        durationText: formatMinutes(durationMinutes(event.startAt, event.endAt)),
-        timeText: `${formatShanghaiClockTime(event.startAt)} - ${formatShanghaiClockTime(event.endAt)}`,
-      },
-      className: `cat-${event.categoryId}`,
-    })),
+    items: events.map((event) => {
+      const theme = categoryMap.get(event.subcategoryId) || categoryMap.get(event.categoryId) || resolveCategoryTheme(event.categoryId);
+      return {
+        id: event.id,
+        start: event.startAt,
+        end: event.endAt,
+        content: buildTimelineItemContent(event),
+        style: buildItemStyle(theme),
+        tooltip: {
+          title: event.title,
+          note: event.note || "",
+          color: theme.color,
+          ink: theme.ink,
+          durationText: formatMinutes(durationMinutes(event.startAt, event.endAt)),
+          timeText: `${formatShanghaiClockTime(event.startAt)} - ${formatShanghaiClockTime(event.endAt)}`,
+        },
+        className: `cat-${event.categoryId}`,
+      };
+    }),
   };
 }
 
@@ -98,17 +90,19 @@ function buildWeekTimeline(weekRange, facts, categoryMap) {
     const day = facts[date];
     for (const event of Array.isArray(day?.events) ? day.events : []) {
       const anchoredRange = anchorEventToReferenceDay(event.startAt, event.endAt, anchorDate);
+      const theme = categoryMap.get(event.subcategoryId) || categoryMap.get(event.categoryId) || resolveCategoryTheme(event.categoryId);
       items.push({
         id: `${date}:${event.id}`,
         group: date,
         start: anchoredRange.start,
         end: anchoredRange.end,
         content: buildTimelineItemContent(event),
-        style: buildItemStyle(categoryMap.get(event.subcategoryId)?.color || categoryMap.get(event.categoryId)?.color || "#4E79A7"),
+        style: buildItemStyle(theme),
         tooltip: {
           title: event.title,
           note: event.note || "",
-          color: categoryMap.get(event.subcategoryId)?.color || categoryMap.get(event.categoryId)?.color || "var(--cat-life)",
+          color: theme.color,
+          ink: theme.ink,
           durationText: formatMinutes(durationMinutes(event.startAt, event.endAt)),
           timeText: `${formatShanghaiClockTime(event.startAt)} - ${formatShanghaiClockTime(event.endAt)}`,
           dateText: date,
@@ -210,7 +204,8 @@ function buildRangeAggregate({ key, label, unit, events, categoryMap, eventNodeM
     upsertBucket(categoryBuckets, categoryId, {
       categoryId,
       label: category?.label || categoryId,
-      color: category?.color || buildCategoryThemeColor(categoryId),
+      color: category?.color || resolveCategoryTheme(categoryId).color,
+      ink: category?.ink || resolveCategoryTheme(categoryId).ink,
       minutes: 0,
     }).minutes += minutes;
 
@@ -219,7 +214,8 @@ function buildRangeAggregate({ key, label, unit, events, categoryMap, eventNodeM
         subcategoryId: event.subcategoryId,
         categoryId,
         label: subcategory?.label || event.subcategoryId,
-        color: category?.color || buildCategoryThemeColor(categoryId),
+        color: subcategory?.color || category?.color || resolveCategoryTheme(categoryId).color,
+        ink: subcategory?.ink || category?.ink || resolveCategoryTheme(categoryId).ink,
         minutes: 0,
       }).minutes += minutes;
     }
@@ -269,6 +265,7 @@ function buildRangeAggregate({ key, label, unit, events, categoryMap, eventNodeM
       categoryId: category.categoryId,
       label: category.label,
       color: category.color,
+      ink: category.ink,
       trend,
       subcategories: relatedSubcategories,
       events: relatedEvents,
@@ -282,6 +279,7 @@ function buildRangeAggregate({ key, label, unit, events, categoryMap, eventNodeM
       categoryId: subcategoryBucket.categoryId,
       label: subcategoryBucket.label,
       color: subcategoryBucket.color,
+      ink: subcategoryBucket.ink,
       trend: allDates.map((date) => ({
         key: date,
         label: date.slice(5),
@@ -342,16 +340,19 @@ function buildDayAggregate(date, events, categoryMap, eventNodeMap) {
 function buildCategoryMap(taxonomy) {
   const map = new Map();
   for (const category of Array.isArray(taxonomy?.categories) ? taxonomy.categories : []) {
+    const theme = resolveCategoryTheme(category.id, category.color);
     map.set(category.id, {
       categoryId: category.id,
       label: category.label,
-      color: buildCategoryThemeColor(category.id, category.color),
+      color: theme.color,
+      ink: theme.ink,
     });
     for (const child of Array.isArray(category.children) ? category.children : []) {
       map.set(child.id, {
         categoryId: category.id,
         label: child.label,
-        color: buildCategoryThemeColor(category.id, category.color),
+        color: theme.color,
+        ink: theme.ink,
       });
     }
   }
@@ -436,8 +437,8 @@ function formatWeekday(date) {
   }).format(Date.parse(`${date}T00:00:00+08:00`));
 }
 
-function buildItemStyle(color) {
-  return `background:${color};border-color:${color};color:var(--text);`;
+function buildItemStyle(theme) {
+  return `--item-fill:${theme.color};--item-border:${theme.color};--item-text:${theme.ink};`;
 }
 
 function durationMinutes(startAt, endAt) {
@@ -545,8 +546,12 @@ function buildEventBlocks(events, includeDate) {
     }));
 }
 
-function buildCategoryThemeColor(categoryId, fallback = "var(--cat-life)") {
-  return CATEGORY_THEME_COLORS[categoryId] || fallback;
+function resolveCategoryTheme(categoryId, fallbackColor = "") {
+  const theme = buildCategoryTheme(categoryId, fallbackColor);
+  return {
+    color: theme.fill,
+    ink: theme.ink,
+  };
 }
 
 module.exports = {

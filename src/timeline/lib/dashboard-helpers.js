@@ -165,7 +165,7 @@ function formatPercent(value) {
 function buildScaledDepthColor(color, ratio) {
   const normalized = Math.max(0, Math.min(1, Number(ratio || 0)));
   const curved = normalized ** 1.8;
-  const colorWeight = Math.round(22 + (curved * 70));
+  const colorWeight = Math.round(38 + (curved * 52));
   const whiteWeight = 100 - colorWeight;
   return `color-mix(in srgb, ${color} ${colorWeight}%, white ${whiteWeight}%)`;
 }

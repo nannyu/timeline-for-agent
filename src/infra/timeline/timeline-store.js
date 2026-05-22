@@ -1,20 +1,8 @@
 const fs = require("fs");
 const path = require("path");
 
+const { resolveCategoryFill } = require("./category-theme");
 const { createDefaultTaxonomy } = require("./default-taxonomy");
-
-const CATEGORY_THEME_COLORS = {
-  life: "var(--cat-life)",
-  work: "var(--cat-work)",
-  study: "var(--cat-study)",
-  exercise: "var(--cat-exercise)",
-  entertainment: "var(--cat-entertainment)",
-  health: "var(--cat-health)",
-  social: "var(--cat-social)",
-  care: "var(--cat-care)",
-  travel: "var(--cat-travel)",
-  rest: "var(--cat-rest)",
-};
 
 class TimelineStore {
   constructor({ stateFilePath = "", taxonomyFilePath, factsFilePath, legacyFilePath = "" }) {
@@ -450,7 +438,7 @@ function normalizeSource(source) {
 }
 
 function buildCategoryThemeColor(categoryId) {
-  return CATEGORY_THEME_COLORS[String(categoryId || "").trim()] || "var(--cat-life)";
+  return resolveCategoryFill(categoryId);
 }
 
 function normalizeIso(value) {
