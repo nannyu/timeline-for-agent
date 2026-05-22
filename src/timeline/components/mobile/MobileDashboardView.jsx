@@ -1,8 +1,8 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 
 import { AnalyticsPanels, EventBlockGrid } from "../DashboardSections.jsx";
 import { TimelineRangeSelector } from "../shared/TimelineRangeControls.jsx";
-import { buildMobileTimelineEntries, formatRangeSelection } from "../../lib/dashboard-helpers.js";
+import { buildMobileHourTicks, buildMobileRecentWeekTimeline, formatRangeSelection } from "../../lib/dashboard-helpers.js";
 import { getTimelineText } from "../../../infra/i18n/timeline-locale.js";
 
 function MobileDashboardView({
@@ -31,7 +31,19 @@ function MobileDashboardView({
   styledSubcategories,
 }) {
   const [activeTab, setActiveTab] = useState("timeline");
-  const timelineEntries = useMemo(() => buildMobileTimelineEntries(currentTimeline), [currentTimeline]);
+  const timelineDays = useMemo(() => buildMobileRecentWeekTimeline(data, locale, selectedWeek), [data, locale, selectedWeek]);
+  const [activeDayKey, setActiveDayKey] = useState("");
+
+  useEffect(() => {
+    const nextActiveDayKey = timelineDays.some((day) => day.date === selectedWeek) ? selectedWeek : "";
+    setActiveDayKey(nextActiveDayKey);
+  }, [selectedWeek, timelineDays]);
+
+  useEffect(() => {
+    if (activeTab === "timeline" && range !== "week") {
+      setRange("week");
+    }
+  }, [activeTab, range, setRange]);
 
   return (
     <main className="page page-mobile">
@@ -53,13 +65,13 @@ function MobileDashboardView({
           </nav>
           <div className="mobile-range-row">
             <nav className="pill-group mobile-unit-group" aria-label={getTimelineText(locale, "selectTimeRange")}>
-              <MobileTabButton active={range === "day"} onClick={() => setRange("day")}>
+              <MobileTabButton active={range === "day"} disabled={activeTab === "timeline"} onClick={() => setRange("day")}>
                 {getTimelineText(locale, "day")}
               </MobileTabButton>
-              <MobileTabButton active={range === "week"} onClick={() => setRange("week")}>
+              <MobileTabButton active={range === "week"} disabled={activeTab === "timeline"} onClick={() => setRange("week")}>
                 {getTimelineText(locale, "week")}
               </MobileTabButton>
-              <MobileTabButton active={range === "month"} onClick={() => setRange("month")}>
+              <MobileTabButton active={range === "month"} disabled={activeTab === "timeline"} onClick={() => setRange("month")}>
                 {getTimelineText(locale, "month")}
               </MobileTabButton>
             </nav>
@@ -78,7 +90,12 @@ function MobileDashboardView({
         </header>
         <div className="mobile-content">
           {activeTab === "timeline" ? (
-            <MobileTimelineView entries={timelineEntries} locale={locale} />
+            <MobileTimelineView
+              activeDayKey={activeDayKey}
+              days={timelineDays}
+              locale={locale}
+              onSelectDay={setActiveDayKey}
+            />
           ) : null}
 
           {activeTab === "analytics" ? (
@@ -111,42 +128,85 @@ function MobileDashboardView({
   );
 }
 
-function MobileTabButton({ active, children, onClick }) {
+function MobileTabButton({ active, children, disabled = false, onClick }) {
   return (
-    <button type="button" className="pill mobile-tab" data-on={active} onClick={onClick}>
+    <button type="button" className="pill mobile-tab" data-on={active} disabled={disabled} onClick={disabled ? undefined : onClick}>
       {children}
     </button>
   );
 }
 
-function MobileTimelineView({ entries, locale }) {
+function MobileTimelineView({ activeDayKey, days, locale, onSelectDay }) {
+  const hourTicks = useMemo(() => buildMobileHourTicks(), []);
   return (
     <section className="mobile-stack-section">
-      {entries.length ? (
-        <div className="mobile-timeline-list">
-          {entries.map((entry) => (
-            <article
-              key={entry.id}
-              className="mobile-timeline-card"
-              style={{ "--mobile-item-fill": entry.color, "--mobile-item-ink": entry.ink }}
-            >
-              <div className="mobile-timeline-card-time">
-                <span>{entry.dateText || getTimelineText(locale, "day")}</span>
-                <strong>{entry.timeText}</strong>
+      {days.length && activeDayKey ? (
+        <div className="mobile-week-strip">
+          <div className="mobile-time-axis">
+            {hourTicks.map((tick) => (
+              <div key={tick.key} className="mobile-time-tick" style={{ top: `${tick.top}%` }}>
+                <span>{tick.label}</span>
               </div>
-              <div className="mobile-timeline-card-body">
-                <h2>{entry.title}</h2>
-                <p>{entry.durationText}</p>
-                {entry.note ? <div className="mobile-timeline-card-note">{entry.note}</div> : null}
-              </div>
-            </article>
-          ))}
+            ))}
+          </div>
+          <div className="mobile-time-grid" aria-hidden="true">
+            {hourTicks.map((tick) => (
+              <div key={tick.key} className="mobile-time-grid-line" style={{ top: `${tick.top}%` }} />
+            ))}
+          </div>
+          {days.map((day) => {
+            const isActive = day.date === activeDayKey;
+            return (
+              <button
+                key={day.date}
+                type="button"
+                className={`mobile-day-column ${isActive ? "active" : "compact"}`.trim()}
+                onClick={() => onSelectDay(day.date)}
+              >
+                <div className="mobile-day-column-head">
+                  <span>{day.weekday}</span>
+                  <strong>{day.label}</strong>
+                </div>
+                <div className="mobile-day-track">
+                  {day.items.map((item) => (
+                    <div
+                      key={item.id}
+                      className={buildMobileDayEventClassName(item.height)}
+                      style={{
+                        "--mobile-item-fill": item.color,
+                        "--mobile-item-ink": item.ink,
+                        top: `${item.top}%`,
+                        height: `${item.height}%`,
+                      }}
+                    >
+                      {isActive ? (
+                        <div className="mobile-day-event-body">
+                          <div className="mobile-day-event-head">
+                            <h2>{item.title}</h2>
+                          </div>
+                          <p>{item.timeText}</p>
+                        </div>
+                      ) : null}
+                    </div>
+                  ))}
+                </div>
+              </button>
+            );
+          })}
         </div>
       ) : (
         <div className="panel empty-state">{getTimelineText(locale, "noTimeline")}</div>
       )}
     </section>
   );
+}
+
+function buildMobileDayEventClassName(heightPercent) {
+  const value = Number(heightPercent || 0);
+  if (value >= 8.4) {
+    return "mobile-day-event mobile-day-event-tall";
+  }
+  return "mobile-day-event mobile-day-event-tight";
 }
 
 function MobileEventsView({ activeDetail, locale }) {
@@ -198,7 +258,6 @@ function MobileEventDialog({ event, ink, onClose }) {
           </button>
         </div>
         <div className="mobile-event-dialog-body">
-          <div>{event.fullLabel}</div>
           {event.note ? <p>{event.note}</p> : <p>{getTimelineText("en", "noData")}</p>}
         </div>
       </div>

@@ -186,7 +186,92 @@ function buildMobileTimelineEntries(timeline) {
     }));
 }
 
+function buildMobileRecentWeekTimeline(data, locale = "en", anchorDate = "") {
+  const allDates = [...(data?.meta?.availableDates || [])].sort();
+  if (!anchorDate || !allDates.includes(anchorDate)) {
+    return [];
+  }
+  const dates = allDates.filter((date) => date <= anchorDate).slice(-7);
+  const resolvedLocale = resolveTimelineLocale(locale);
+  return dates.map((date) => {
+    const dayTimeline = data?.timelines?.day?.[date];
+    const items = Array.isArray(dayTimeline?.items) ? dayTimeline.items : [];
+    return {
+      date,
+      label: formatMobileDayLabel(date, resolvedLocale),
+      weekday: formatMobileWeekday(date, resolvedLocale),
+      items: items
+        .map((item) => ({
+          id: item.id,
+          title: item.tooltip?.title || "",
+          note: item.tooltip?.note || "",
+          timeText: item.tooltip?.timeText || "",
+          durationText: item.tooltip?.durationText || "",
+          color: item.tooltip?.color || "var(--paper-edge)",
+          ink: item.tooltip?.ink || "var(--ink)",
+          top: buildDayPosition(item.start),
+          height: buildDayHeight(item.start, item.end),
+        }))
+        .sort((left, right) => left.top - right.top),
+    };
+  });
+}
+
+function buildMobileHourTicks() {
+  return Array.from({ length: 25 }, (_, index) => ({
+    key: `hour-${index}`,
+    label: `${String(index % 24).padStart(2, "0")}:00`,
+    top: (index / 24) * 100,
+  }));
+}
+
+function buildDayPosition(startAt) {
+  const minutes = minutesSinceShanghaiMidnight(startAt);
+  return (minutes / (24 * 60)) * 100;
+}
+
+function buildDayHeight(startAt, endAt) {
+  const duration = Math.max(20, durationMinutesFromIso(startAt, endAt));
+  return (duration / (24 * 60)) * 100;
+}
+
+function durationMinutesFromIso(startAt, endAt) {
+  return Math.max(0, Math.round((Date.parse(endAt) - Date.parse(startAt)) / 60_000));
+}
+
+function minutesSinceShanghaiMidnight(value) {
+  const parsed = Date.parse(value);
+  const hour = Number(new Intl.DateTimeFormat("en-GB", {
+    timeZone: "Asia/Shanghai",
+    hour: "2-digit",
+    hour12: false,
+  }).format(parsed));
+  const minute = Number(new Intl.DateTimeFormat("en-GB", {
+    timeZone: "Asia/Shanghai",
+    minute: "2-digit",
+    hour12: false,
+  }).format(parsed));
+  return (hour * 60) + minute;
+}
+
+function formatMobileDayLabel(date, locale = "en") {
+  return new Intl.DateTimeFormat(locale === "zh-CN" ? "zh-CN" : "en-US", {
+    timeZone: "Asia/Shanghai",
+    month: "numeric",
+    day: "numeric",
+  }).format(Date.parse(`${date}T00:00:00+08:00`));
+}
+
+function formatMobileWeekday(date, locale = "en") {
+  return new Intl.DateTimeFormat(locale === "zh-CN" ? "zh-CN" : "en-US", {
+    timeZone: "Asia/Shanghai",
+    weekday: "short",
+  }).format(Date.parse(`${date}T00:00:00+08:00`));
+}
+
 export {
+  buildMobileHourTicks,
+  buildMobileRecentWeekTimeline,
   buildMobileTimelineEntries,
   buildMonthTimeline,
   buildScaledDepthColor,
