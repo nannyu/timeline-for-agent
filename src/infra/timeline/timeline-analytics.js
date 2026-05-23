@@ -1,10 +1,22 @@
 const { getTimelineText, localizeTimelineTaxonomy, resolveTimelineLocale } = require("../i18n/timeline-locale");
 const { buildCategoryTheme } = require("./category-theme");
+const {
+  anchorClockRangeToReferenceDay,
+  dateKeyTimeToTimestamp,
+  formatClockInTimezone,
+  formatDateInTimezone,
+  formatWeekdayInTimezone,
+  getWeekStartInTimezone,
+  offsetDateInTimezone,
+  resolveTimelineTimezone,
+} = require("./timezone-utils");
 
 let activeLocale = "en";
+let activeTimezone = "Asia/Shanghai";
 
 function buildTimelineViews(state, metaOverrides = {}, options = {}) {
   activeLocale = resolveTimelineLocale(options.locale || metaOverrides.locale || "en");
+  activeTimezone = resolveTimelineTimezone(state.timezone || metaOverrides.timezone);
   const dates = Object.keys(state.facts || {}).sort();
   const localizedTaxonomy = localizeTimelineTaxonomy(state.taxonomy, activeLocale);
   const categoryMap = buildCategoryMap(localizedTaxonomy);
@@ -33,7 +45,7 @@ function buildTimelineViews(state, metaOverrides = {}, options = {}) {
       taxonomyUpdatedAt: metaOverrides.taxonomyUpdatedAt || "",
       factsUpdatedAt: metaOverrides.factsUpdatedAt || "",
       isDemoData: Boolean(metaOverrides.isDemoData),
-      timezone: state.timezone || "Asia/Shanghai",
+      timezone: activeTimezone,
       locale: activeLocale,
       availableDates: dates,
       latestDate: dates[dates.length - 1] || "",
@@ -54,8 +66,8 @@ function buildDayTimeline(date, day, categoryMap) {
   const events = Array.isArray(day?.events) ? day.events : [];
   return {
     date,
-    start: `${date}T00:00:00.000+08:00`,
-    end: `${date}T23:59:59.999+08:00`,
+    start: new Date(dateKeyTimeToTimestamp(date, "00:00:00", activeTimezone)).toISOString(),
+    end: new Date(dateKeyTimeToTimestamp(date, "23:59:59", activeTimezone) + 999).toISOString(),
     groups: [],
     items: events.map((event) => {
       const theme = categoryMap.get(event.subcategoryId) || categoryMap.get(event.categoryId) || resolveCategoryTheme(event.categoryId);
@@ -71,7 +83,7 @@ function buildDayTimeline(date, day, categoryMap) {
           color: theme.color,
           ink: theme.ink,
           durationText: formatMinutes(durationMinutes(event.startAt, event.endAt)),
-          timeText: `${formatShanghaiClockTime(event.startAt)} - ${formatShanghaiClockTime(event.endAt)}`,
+          timeText: `${formatClockInTimezone(event.startAt, activeTimezone)} - ${formatClockInTimezone(event.endAt, activeTimezone)}`,
         },
         className: `cat-${event.categoryId}`,
       };
@@ -104,7 +116,7 @@ function buildWeekTimeline(weekRange, facts, categoryMap) {
           color: theme.color,
           ink: theme.ink,
           durationText: formatMinutes(durationMinutes(event.startAt, event.endAt)),
-          timeText: `${formatShanghaiClockTime(event.startAt)} - ${formatShanghaiClockTime(event.endAt)}`,
+          timeText: `${formatClockInTimezone(event.startAt, activeTimezone)} - ${formatClockInTimezone(event.endAt, activeTimezone)}`,
           dateText: date,
         },
         className: `cat-${event.categoryId}`,
@@ -199,7 +211,7 @@ function buildRangeAggregate({ key, label, unit, events, categoryMap, eventNodeM
     const category = categoryMap.get(event.categoryId);
     const subcategory = categoryMap.get(event.subcategoryId);
     const categoryId = event.categoryId;
-    const dateKey = formatShanghaiDate(Date.parse(event.startAt));
+    const dateKey = formatDateInTimezone(event.startAt, activeTimezone);
 
     upsertBucket(categoryBuckets, categoryId, {
       categoryId,
@@ -255,7 +267,7 @@ function buildRangeAggregate({ key, label, unit, events, categoryMap, eventNodeM
         if (event.categoryId !== category.categoryId) {
           continue;
         }
-        if (formatShanghaiDate(Date.parse(event.startAt)) === date) {
+        if (formatDateInTimezone(event.startAt, activeTimezone) === date) {
           minutes += durationMinutes(event.startAt, event.endAt);
         }
       }
@@ -370,7 +382,7 @@ function buildEventNodeMap(taxonomy) {
 function buildWeekRanges(dates) {
   const grouped = new Map();
   for (const date of dates) {
-    const startDate = getWeekStart(date);
+    const startDate = getWeekStartInTimezone(date, activeTimezone);
     if (!grouped.has(startDate)) {
       grouped.set(startDate, []);
     }
@@ -382,7 +394,7 @@ function buildWeekRanges(dates) {
       key: startDate,
       label: activeLocale === "zh-CN" ? `${startDate} ${getTimelineText(activeLocale, "weekOf")}` : `${getTimelineText(activeLocale, "weekOf")} ${startDate}`,
       start: `${startDate}T00:00:00.000+08:00`,
-      end: `${offsetDate(startDate, 7)}T00:00:00.000+08:00`,
+      end: `${offsetDateInTimezone(startDate, 7, activeTimezone)}T00:00:00.000+08:00`,
       dates: fillWeekDates(startDate, groupedDates),
     }));
 }
@@ -391,50 +403,14 @@ function fillWeekDates(startDate, existingDates) {
   const existing = new Set(existingDates);
   const dates = [];
   for (let index = 0; index < 7; index += 1) {
-    const date = offsetDate(startDate, index);
+    const date = offsetDateInTimezone(startDate, index, activeTimezone);
     dates.push(existing.has(date) ? date : date);
   }
   return dates;
 }
 
-function getWeekStart(date) {
-  const timestamp = Date.parse(`${date}T00:00:00+08:00`);
-  const weekdayLabel = new Intl.DateTimeFormat("en-US", {
-    timeZone: "Asia/Shanghai",
-    weekday: "short",
-  }).format(timestamp);
-  const weekdayMap = {
-    Mon: 0,
-    Tue: 1,
-    Wed: 2,
-    Thu: 3,
-    Fri: 4,
-    Sat: 5,
-    Sun: 6,
-  };
-  const offset = weekdayMap[weekdayLabel] ?? 0;
-  return offsetDate(date, -offset);
-}
-
-function offsetDate(date, dayDelta) {
-  const timestamp = Date.parse(`${date}T00:00:00+08:00`);
-  return formatShanghaiDate(timestamp + dayDelta * 24 * 60 * 60 * 1000);
-}
-
-function formatShanghaiDate(timestampMs) {
-  return new Intl.DateTimeFormat("en-CA", {
-    timeZone: "Asia/Shanghai",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).format(timestampMs);
-}
-
 function formatWeekday(date) {
-  return new Intl.DateTimeFormat(activeLocale === "zh-CN" ? "zh-CN" : "en-US", {
-    timeZone: "Asia/Shanghai",
-    weekday: "short",
-  }).format(Date.parse(`${date}T00:00:00+08:00`));
+  return formatWeekdayInTimezone(dateKeyTimeToTimestamp(date, "00:00:00", activeTimezone), activeTimezone, activeLocale === "zh-CN" ? "zh-CN" : "en-US");
 }
 
 function buildItemStyle(theme) {
@@ -446,17 +422,7 @@ function durationMinutes(startAt, endAt) {
 }
 
 function anchorEventToReferenceDay(startAt, endAt, anchorDate) {
-  const startClock = formatShanghaiClockTime(startAt);
-  const endClock = formatShanghaiClockTime(endAt);
-  let anchoredStart = `${anchorDate}T${startClock}:00+08:00`;
-  let anchoredEnd = `${anchorDate}T${endClock}:00+08:00`;
-  if (Date.parse(anchoredEnd) <= Date.parse(anchoredStart)) {
-    anchoredEnd = `${offsetDate(anchorDate, 1)}T${endClock}:00+08:00`;
-  }
-  return {
-    start: anchoredStart,
-    end: anchoredEnd,
-  };
+  return anchorClockRangeToReferenceDay(startAt, endAt, anchorDate, activeTimezone);
 }
 
 function formatMinutes(minutes) {
@@ -490,15 +456,6 @@ function formatCompactDuration(minutes) {
   return `${hours}h${remaining}m`;
 }
 
-function formatShanghaiClockTime(value) {
-  return new Intl.DateTimeFormat("en-GB", {
-    timeZone: "Asia/Shanghai",
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: false,
-  }).format(Date.parse(value));
-}
-
 function upsertBucket(map, key, createValue) {
   if (!map.has(key)) {
     map.set(key, createValue);
@@ -515,8 +472,9 @@ function buildHourlyDistribution(events) {
   for (const event of events) {
     const start = Date.parse(event.startAt);
     const end = Date.parse(event.endAt);
+    const eventDate = formatDateInTimezone(start, activeTimezone);
     for (let index = 0; index < 24; index += 1) {
-      const hourStart = Date.parse(`${formatShanghaiDate(start)}T${String(index).padStart(2, "0")}:00:00+08:00`);
+      const hourStart = dateKeyTimeToTimestamp(eventDate, `${String(index).padStart(2, "0")}:00:00`, activeTimezone);
       const hourEnd = hourStart + 60 * 60 * 1000;
       const overlap = Math.max(0, Math.min(end, hourEnd) - Math.max(start, hourStart));
       buckets[index].minutes += Math.round(overlap / 60_000);
@@ -531,12 +489,12 @@ function buildEventBlocks(events, includeDate) {
     .map((event) => ({
       eventNodeId: event.id,
       label: event.title,
-      dateLabel: includeDate ? formatShanghaiDate(Date.parse(event.startAt)).slice(5) : "",
-      timeLabel: `${formatShanghaiClockTime(event.startAt)} - ${formatShanghaiClockTime(event.endAt)}`,
+      dateLabel: includeDate ? formatDateInTimezone(event.startAt, activeTimezone).slice(5) : "",
+      timeLabel: `${formatClockInTimezone(event.startAt, activeTimezone)} - ${formatClockInTimezone(event.endAt, activeTimezone)}`,
       compactDuration: formatCompactDuration(durationMinutes(event.startAt, event.endAt)),
       fullLabel: includeDate
-        ? `${formatShanghaiDate(Date.parse(event.startAt)).slice(5)} ${formatShanghaiClockTime(event.startAt)} - ${formatShanghaiClockTime(event.endAt)} ${event.title}`
-        : `${formatShanghaiClockTime(event.startAt)} - ${formatShanghaiClockTime(event.endAt)} ${event.title}`,
+        ? `${formatDateInTimezone(event.startAt, activeTimezone).slice(5)} ${formatClockInTimezone(event.startAt, activeTimezone)} - ${formatClockInTimezone(event.endAt, activeTimezone)} ${event.title}`
+        : `${formatClockInTimezone(event.startAt, activeTimezone)} - ${formatClockInTimezone(event.endAt, activeTimezone)} ${event.title}`,
       note: event.note || "",
       status: event.eventNodeId ? "official" : "derived",
       categoryId: event.categoryId,

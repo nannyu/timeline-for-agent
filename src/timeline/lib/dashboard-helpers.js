@@ -1,9 +1,23 @@
 import { getTimelineText, resolveTimelineLocale } from "../../infra/i18n/timeline-locale.js";
+import timezoneUtils from "../../infra/timeline/timezone-utils.js";
+
+const {
+  anchorClockRangeToReferenceDay,
+  formatClockInTimezone,
+  formatDateInTimezone,
+  formatDayOfMonthInTimezone,
+  formatMonthDayInTimezone,
+  formatWeekdayInTimezone,
+  minutesSinceMidnightInTimezone,
+  offsetDateInTimezone,
+  resolveTimelineTimezone,
+} = timezoneUtils;
 
 function buildMonthTimeline(data, monthKey) {
   if (!data || !monthKey) {
     return null;
   }
+  const timezone = resolveTimelineTimezone(data?.meta?.timezone);
   const dates = (data?.meta?.availableDates || []).filter((date) => date.startsWith(monthKey)).sort();
   if (!dates.length) {
     return null;
@@ -16,13 +30,13 @@ function buildMonthTimeline(data, monthKey) {
     end: `${anchorDate}T23:59:59.999+08:00`,
     groups: dates.map((date) => ({
       id: date,
-      content: formatMonthGroupLabel(date, data?.meta?.locale || "en"),
+      content: formatMonthGroupLabel(date, timezone, data?.meta?.locale || "en"),
     })),
     items: dates.flatMap((date) => {
       const dayTimeline = data?.timelines?.day?.[date];
       const dayItems = Array.isArray(dayTimeline?.items) ? dayTimeline.items : [];
       return dayItems.map((item) => {
-        const anchored = anchorItemRangeToReferenceDay(item.start, item.end, anchorDate);
+        const anchored = anchorItemRangeToReferenceDay(item.start, item.end, anchorDate, timezone);
         return {
           ...item,
           id: `${date}:${item.id}`,
@@ -39,43 +53,18 @@ function buildMonthTimeline(data, monthKey) {
   };
 }
 
-function anchorItemRangeToReferenceDay(startAt, endAt, anchorDate) {
-  const startClock = formatClockFromIso(startAt);
-  const endClock = formatClockFromIso(endAt);
-  let anchoredStart = `${anchorDate}T${startClock}:00+08:00`;
-  let anchoredEnd = `${anchorDate}T${endClock}:00+08:00`;
-  if (Date.parse(anchoredEnd) <= Date.parse(anchoredStart)) {
-    anchoredEnd = `${offsetShanghaiDate(anchorDate, 1)}T${endClock}:00+08:00`;
-  }
-  return { start: anchoredStart, end: anchoredEnd };
+function anchorItemRangeToReferenceDay(startAt, endAt, anchorDate, timezone) {
+  return anchorClockRangeToReferenceDay(startAt, endAt, anchorDate, timezone);
 }
 
-function formatMonthGroupLabel(date, locale = "en") {
+function formatMonthGroupLabel(date, timezone, locale = "en") {
   const resolvedLocale = resolveTimelineLocale(locale);
-  const weekday = new Intl.DateTimeFormat(resolvedLocale === "zh-CN" ? "zh-CN" : "en-US", {
-    timeZone: "Asia/Shanghai",
-    weekday: "short",
-  }).format(Date.parse(`${date}T00:00:00+08:00`));
+  const weekday = formatWeekdayInTimezone(`${date}T00:00:00`, timezone, resolvedLocale === "zh-CN" ? "zh-CN" : "en-US");
   return `${date.slice(5)} ${weekday}`;
 }
 
 function formatClockFromIso(value) {
-  return new Intl.DateTimeFormat("en-GB", {
-    timeZone: "Asia/Shanghai",
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: false,
-  }).format(Date.parse(value));
-}
-
-function offsetShanghaiDate(date, dayDelta) {
-  const timestamp = Date.parse(`${date}T00:00:00+08:00`);
-  return new Intl.DateTimeFormat("en-CA", {
-    timeZone: "Asia/Shanghai",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).format(timestamp + dayDelta * 24 * 60 * 60 * 1000);
+  return formatClockInTimezone(value, "Asia/Shanghai");
 }
 
 function formatDateTime(value, locale = "en") {
@@ -87,15 +76,9 @@ function formatDateTime(value, locale = "en") {
     return value;
   }
   const resolvedLocale = resolveTimelineLocale(locale);
-  return new Intl.DateTimeFormat(resolvedLocale === "zh-CN" ? "zh-CN" : "en-US", {
-    timeZone: "Asia/Shanghai",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: false,
-  }).format(parsed);
+  const dateText = formatDateInTimezone(parsed, "Asia/Shanghai");
+  const clockText = formatClockInTimezone(parsed, "Asia/Shanghai");
+  return `${dateText} ${clockText}`;
 }
 
 function formatRangeSelection(range, value, locale = "en") {
@@ -187,6 +170,7 @@ function buildMobileTimelineEntries(timeline) {
 }
 
 function buildMobileRecentWeekTimeline(data, locale = "en", anchorDate = "") {
+  const timezone = resolveTimelineTimezone(data?.meta?.timezone);
   const allDates = [...(data?.meta?.availableDates || [])].sort();
   if (!anchorDate || !allDates.includes(anchorDate)) {
     return [];
@@ -198,9 +182,9 @@ function buildMobileRecentWeekTimeline(data, locale = "en", anchorDate = "") {
     const items = Array.isArray(dayTimeline?.items) ? dayTimeline.items : [];
     return {
       date,
-      label: formatMobileDayLabel(date, resolvedLocale),
-      weekday: formatMobileWeekdayEnglish(date),
-      compactDay: formatMobileDayOfMonth(date),
+      label: formatMobileDayLabel(date, timezone, resolvedLocale),
+      weekday: formatMobileWeekdayEnglish(date, timezone),
+      compactDay: formatMobileDayOfMonth(date, timezone),
       items: items
         .map((item) => ({
           id: item.id,
@@ -210,7 +194,7 @@ function buildMobileRecentWeekTimeline(data, locale = "en", anchorDate = "") {
           durationText: item.tooltip?.durationText || "",
           color: item.tooltip?.color || "var(--paper-edge)",
           ink: item.tooltip?.ink || "var(--ink)",
-          top: buildDayPosition(item.start),
+          top: buildDayPosition(item.start, timezone),
           height: buildDayHeight(item.start, item.end),
         }))
         .sort((left, right) => left.top - right.top),
@@ -226,8 +210,8 @@ function buildMobileHourTicks() {
   }));
 }
 
-function buildDayPosition(startAt) {
-  const minutes = minutesSinceShanghaiMidnight(startAt);
+function buildDayPosition(startAt, timezone) {
+  const minutes = minutesSinceMidnightInTimezone(startAt, timezone);
   return (minutes / (24 * 60)) * 100;
 }
 
@@ -240,48 +224,20 @@ function durationMinutesFromIso(startAt, endAt) {
   return Math.max(0, Math.round((Date.parse(endAt) - Date.parse(startAt)) / 60_000));
 }
 
-function minutesSinceShanghaiMidnight(value) {
-  const parsed = Date.parse(value);
-  const hour = Number(new Intl.DateTimeFormat("en-GB", {
-    timeZone: "Asia/Shanghai",
-    hour: "2-digit",
-    hour12: false,
-  }).format(parsed));
-  const minute = Number(new Intl.DateTimeFormat("en-GB", {
-    timeZone: "Asia/Shanghai",
-    minute: "2-digit",
-    hour12: false,
-  }).format(parsed));
-  return (hour * 60) + minute;
+function formatMobileDayLabel(date, timezone, locale = "en") {
+  return formatMonthDayInTimezone(`${date}T00:00:00`, timezone, locale === "zh-CN" ? "zh-CN" : "en-US");
 }
 
-function formatMobileDayLabel(date, locale = "en") {
-  return new Intl.DateTimeFormat(locale === "zh-CN" ? "zh-CN" : "en-US", {
-    timeZone: "Asia/Shanghai",
-    month: "numeric",
-    day: "numeric",
-  }).format(Date.parse(`${date}T00:00:00+08:00`));
+function formatMobileWeekday(date, timezone, locale = "en") {
+  return formatWeekdayInTimezone(`${date}T00:00:00`, timezone, locale === "zh-CN" ? "zh-CN" : "en-US");
 }
 
-function formatMobileWeekday(date, locale = "en") {
-  return new Intl.DateTimeFormat(locale === "zh-CN" ? "zh-CN" : "en-US", {
-    timeZone: "Asia/Shanghai",
-    weekday: "short",
-  }).format(Date.parse(`${date}T00:00:00+08:00`));
+function formatMobileWeekdayEnglish(date, timezone) {
+  return formatWeekdayInTimezone(`${date}T00:00:00`, timezone, "en-US");
 }
 
-function formatMobileWeekdayEnglish(date) {
-  return new Intl.DateTimeFormat("en-US", {
-    timeZone: "Asia/Shanghai",
-    weekday: "short",
-  }).format(Date.parse(`${date}T00:00:00+08:00`));
-}
-
-function formatMobileDayOfMonth(date) {
-  return new Intl.DateTimeFormat("en-US", {
-    timeZone: "Asia/Shanghai",
-    day: "numeric",
-  }).format(Date.parse(`${date}T00:00:00+08:00`));
+function formatMobileDayOfMonth(date, timezone) {
+  return formatDayOfMonthInTimezone(`${date}T00:00:00`, timezone, "en-US");
 }
 
 export {

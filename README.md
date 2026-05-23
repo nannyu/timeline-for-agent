@@ -140,6 +140,13 @@ node ./bin/timeline-for-agent.js dev
 - `shots/`
   `screenshot` 默认输出目录
 
+时区配置：
+
+- `timeline-state.json`、`timeline-taxonomy.json`、`timeline-facts.json` 都会带 `timezone`
+- dashboard 的日/周/月分桶、趋势统计、tooltip 时间、移动端时间轴定位，都应以这个 `timezone` 为准
+- 如果你部署在东八区外，或希望按其他时区解释同一份事件数据，优先检查并修改 `timeline-state.json` 里的 `timezone`
+- 如果你还在使用拆分文件模式，也需要保证 `timeline-taxonomy.json` 和 `timeline-facts.json` 里的 `timezone` 一致
+
 CLI 会优先读取这两个 `.env` 位置：
 
 - 当前工作目录下的 `.env`

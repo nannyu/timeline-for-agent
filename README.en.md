@@ -124,6 +124,13 @@ Important files:
 - `shots/`
   default output directory for `screenshot`
 
+Timezone configuration:
+
+- `timeline-state.json`, `timeline-taxonomy.json`, and `timeline-facts.json` all carry a `timezone` field
+- day/week/month grouping, trend aggregation, tooltip times, and mobile timeline positioning should all follow that `timezone`
+- if you deploy outside UTC+8, or want the same event data interpreted in another timezone, check and update `timeline-state.json` first
+- if you are still using the separated-file layout, keep the `timezone` values in `timeline-taxonomy.json` and `timeline-facts.json` aligned
+
 The CLI reads `.env` from these two locations first:
 
 - the current working directory
