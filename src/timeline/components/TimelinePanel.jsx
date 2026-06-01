@@ -2,6 +2,8 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { DataSet, Timeline } from "vis-timeline/standalone/esm/vis-timeline-graph2d.mjs";
 
+import { EventDetailDialog } from "./DashboardSections.jsx";
+
 const TIMELINE_ZOOM_LEVELS = [
   { durationMs: 24 * 60 * 60 * 1000, timeAxis: { scale: "hour", step: 4 } },
   { durationMs: 18 * 60 * 60 * 1000, timeAxis: { scale: "hour", step: 3 } },
@@ -18,11 +20,13 @@ const TIMELINE_ZOOM_LEVELS = [
   { durationMs: 15 * 60 * 1000, timeAxis: { scale: "minute", step: 5 } },
 ];
 
-function TimelinePanel({ timeline }) {
+function TimelinePanel({ locale = "en", timeline }) {
   const containerRef = useRef(null);
   const tooltipRef = useRef(null);
+  const [selectedEvent, setSelectedEvent] = useState(null);
   useVisTimeline({
     containerRef,
+    onEventSelect: setSelectedEvent,
     timeline,
     tooltipRef,
   });
@@ -31,12 +35,16 @@ function TimelinePanel({ timeline }) {
     <div className="timeline-wrap">
       <div ref={containerRef} className="timeline-canvas" />
       <TimelineTooltipPortal tooltipRef={tooltipRef} />
+      {selectedEvent ? (
+        <EventDetailDialog event={selectedEvent} ink={selectedEvent.ink || "var(--ink)"} locale={locale} onClose={() => setSelectedEvent(null)} />
+      ) : null}
     </div>
   );
 }
 
 function useVisTimeline({
   containerRef,
+  onEventSelect,
   timeline,
   tooltipRef,
 }) {
@@ -86,9 +94,19 @@ function useVisTimeline({
       const item = properties?.item ? items.get(properties.item) : null;
       renderTimelineTooltip(tooltipRef.current, item?.tooltip || null, properties?.event);
     };
+    const handleClick = (properties) => {
+      const item = properties?.item ? items.get(properties.item) : null;
+      const detail = buildTimelineEventDetail(item);
+      if (!detail) {
+        return;
+      }
+      renderTimelineTooltip(tooltipRef.current, null);
+      onEventSelect(detail);
+    };
     const handleHide = () => renderTimelineTooltip(tooltipRef.current, null);
     const cleanupZoom = bindWheelZoom(element);
 
+    timelineRef.current.on("click", handleClick);
     timelineRef.current.on("itemover", handleMove);
     timelineRef.current.on("itemout", handleHide);
     timelineRef.current.on("mouseMove", handleMove);
@@ -97,6 +115,7 @@ function useVisTimeline({
       cleanupZoom();
       renderTimelineTooltip(tooltipRef.current, null);
       if (timelineRef.current) {
+        timelineRef.current.off("click", handleClick);
         timelineRef.current.off("itemover", handleMove);
         timelineRef.current.off("itemout", handleHide);
         timelineRef.current.off("mouseMove", handleMove);
@@ -104,7 +123,7 @@ function useVisTimeline({
         timelineRef.current = null;
       }
     };
-  }, [bindWheelZoom, containerRef, initialTimeAxis, resetZoom, timeline, tooltipRef]);
+  }, [bindWheelZoom, containerRef, initialTimeAxis, onEventSelect, resetZoom, timeline, tooltipRef]);
 
 }
 
@@ -270,6 +289,21 @@ function renderTimelineTooltip(element, tooltip, event) {
   }
 }
 
+function buildTimelineEventDetail(item) {
+  const tooltip = item?.tooltip;
+  if (!tooltip) {
+    return null;
+  }
+  return {
+    label: tooltip.title || stripHtml(item.content || ""),
+    dateLabel: tooltip.dateText || "",
+    timeLabel: tooltip.timeText || "",
+    compactDuration: tooltip.durationText || "",
+    note: tooltip.note || "",
+    ink: tooltip.ink || "var(--ink)",
+  };
+}
+
 function resolveTooltipAccentFromEvent(event) {
   const target = event?.target;
   if (!(target instanceof Element)) {
@@ -293,6 +327,10 @@ function resolveTooltipAccentFromEvent(event) {
   ];
   const matched = categoryClasses.find((className) => item.classList.contains(className));
   return matched ? `var(--${matched})` : "";
+}
+
+function stripHtml(value) {
+  return String(value || "").replace(/<[^>]*>/g, "").trim();
 }
 
 function escapeHtml(value) {

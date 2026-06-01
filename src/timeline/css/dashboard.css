@@ -1392,6 +1392,7 @@ input {
   font-weight: 500;
   font-style: italic;
   box-shadow: none;
+  cursor: pointer;
 }
 
 .timeline-canvas .vis-item .vis-item-content,

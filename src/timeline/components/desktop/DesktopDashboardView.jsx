@@ -69,7 +69,7 @@ function DesktopDashboardView({
         </div>
 
         {currentTimeline ? (
-          <TimelinePanel timeline={currentTimeline} />
+          <TimelinePanel locale={locale} timeline={currentTimeline} />
         ) : (
           <div className="empty-state">{getTimelineText(locale, "noTimeline")}</div>
         )}

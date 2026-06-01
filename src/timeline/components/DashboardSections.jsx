@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import {
   Bar,
   BarChart,
@@ -101,6 +101,8 @@ function AnalyticsPanels({
   onCategorySelect,
   onSubcategorySelect,
 }) {
+  const [selectedEvent, setSelectedEvent] = useState(null);
+
   // Recharts renders pie charts as focusable SVG nodes. On WebKit, pointer clicks can
   // briefly leave a native blue focus ring on the sector/surface even after disabling
   // the accessibility layer. Clearing focus on pointer down/up keeps the pie charts
@@ -296,12 +298,15 @@ function AnalyticsPanels({
               <span>{currentRangeLabel}</span>
             </div>
             {activeDetail?.events?.length ? (
-              <EventBlockGrid events={activeDetail.events} color={activeDetail.color} ink={activeDetail.ink} />
+              <EventBlockGrid events={activeDetail.events} color={activeDetail.color} ink={activeDetail.ink} onEventSelect={setSelectedEvent} />
             ) : (
               <div className="empty-state small">{getTimelineText(locale, "noEventDetails")}</div>
             )}
           </div>
         </section>
+      ) : null}
+      {selectedEvent ? (
+        <EventDetailDialog event={selectedEvent} ink={activeDetail?.ink || "var(--ink)"} locale={locale} onClose={() => setSelectedEvent(null)} />
       ) : null}
     </>
   );
@@ -392,4 +397,26 @@ function EventBlockGrid({ events, color, ink, compact = false, onEventSelect = n
   );
 }
 
-export { AnalyticsPanels, EventBlockGrid, HeaderStats };
+function EventDetailDialog({ event, ink, locale = "en", onClose }) {
+  const durationText = event.compactDuration || event.durationText || "";
+  return (
+    <div className="mobile-event-dialog-backdrop" onClick={onClose}>
+      <div className="mobile-event-dialog" onClick={(eventObject) => eventObject.stopPropagation()}>
+        <div className="mobile-event-dialog-header">
+          <div>
+            <h2 style={{ color: ink }}>{event.label || event.title}</h2>
+            <span>{event.dateLabel ? `${event.dateLabel} | ` : ""}{event.timeLabel}{durationText ? ` | ${durationText}` : ""}</span>
+          </div>
+          <button type="button" className="mobile-event-dialog-close" onClick={onClose} aria-label="Close event details">
+            ×
+          </button>
+        </div>
+        <div className="mobile-event-dialog-body">
+          {event.note ? <p>{event.note}</p> : <p>{getTimelineText(locale, "noData")}</p>}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export { AnalyticsPanels, EventBlockGrid, EventDetailDialog, HeaderStats };

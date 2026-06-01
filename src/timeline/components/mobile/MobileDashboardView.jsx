@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 
-import { AnalyticsPanels, EventBlockGrid } from "../DashboardSections.jsx";
+import { AnalyticsPanels, EventBlockGrid, EventDetailDialog } from "../DashboardSections.jsx";
 import { TimelineRangeSelector } from "../shared/TimelineRangeControls.jsx";
 import { buildMobileHourTicks, buildMobileRecentWeekTimeline, formatRangeSelection } from "../../lib/dashboard-helpers.js";
 import { getTimelineText } from "../../../infra/i18n/timeline-locale.js";
@@ -162,6 +162,7 @@ function MobileTimelineHeader({ activeDayKey, days, onSelectDay }) {
 }
 
 function MobileTimelineView({ activeDayKey, days, locale, onSelectDay }) {
+  const [selectedEvent, setSelectedEvent] = useState(null);
   const hourTicks = useMemo(() => buildMobileHourTicks(), []);
   return (
     <section className="mobile-stack-section">
@@ -202,7 +203,16 @@ function MobileTimelineView({ activeDayKey, days, locale, onSelectDay }) {
                         }}
                       >
                         {isActive ? (
-                          <div className="mobile-day-event-body">
+                          <div className="mobile-day-event-body" onClick={(eventObject) => {
+                            eventObject.stopPropagation();
+                            setSelectedEvent({
+                              label: item.title,
+                              dateLabel: day.label,
+                              timeLabel: item.timeText,
+                              compactDuration: item.durationText,
+                              note: item.note,
+                            });
+                          }}>
                             <div className="mobile-day-event-head">
                               <h2>{item.title}</h2>
                             </div>
@@ -220,6 +230,9 @@ function MobileTimelineView({ activeDayKey, days, locale, onSelectDay }) {
       ) : (
         <div className="panel empty-state">{getTimelineText(locale, "noTimeline")}</div>
       )}
+      {selectedEvent ? (
+        <EventDetailDialog event={selectedEvent} ink="var(--ink)" locale={locale} onClose={() => setSelectedEvent(null)} />
+      ) : null}
     </section>
   );
 }
@@ -261,30 +274,9 @@ function MobileEventsView({ activeDetail, locale }) {
         )}
       </div>
       {selectedEvent ? (
-        <MobileEventDialog event={selectedEvent} ink={activeDetail?.ink || "var(--ink)"} onClose={() => setSelectedEvent(null)} />
+        <EventDetailDialog event={selectedEvent} ink={activeDetail?.ink || "var(--ink)"} locale={locale} onClose={() => setSelectedEvent(null)} />
       ) : null}
     </section>
-  );
-}
-
-function MobileEventDialog({ event, ink, onClose }) {
-  return (
-    <div className="mobile-event-dialog-backdrop" onClick={onClose}>
-      <div className="mobile-event-dialog" onClick={(eventObject) => eventObject.stopPropagation()}>
-        <div className="mobile-event-dialog-header">
-          <div>
-            <h2 style={{ color: ink }}>{event.label}</h2>
-            <span>{event.dateLabel ? `${event.dateLabel} | ` : ""}{event.timeLabel} | {event.compactDuration}</span>
-          </div>
-          <button type="button" className="mobile-event-dialog-close" onClick={onClose} aria-label="Close event details">
-            ×
-          </button>
-        </div>
-        <div className="mobile-event-dialog-body">
-          {event.note ? <p>{event.note}</p> : <p>{getTimelineText("en", "noData")}</p>}
-        </div>
-      </div>
-    </div>
   );
 }
 
