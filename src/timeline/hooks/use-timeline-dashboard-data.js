@@ -3,7 +3,7 @@ import { buildTimelineViews } from "../../infra/timeline/timeline-analytics";
 
 const EMPTY_DASHBOARD_DATA = {
   meta: { availableDates: [] },
-  ranges: { day: {}, week: {}, month: {} },
+  ranges: { day: {}, week: {}, rollingWeek: {}, month: {} },
   timelines: { day: {}, week: {} },
   taxonomy: { categories: [] },
 };

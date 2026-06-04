@@ -14,6 +14,7 @@ function TimelineRangeSelector({
   onMonthChange,
   data,
   locale,
+  weekRangeMode = "calendar",
 }) {
   if (range === "day") {
     const dates = data?.meta?.availableDates || [];
@@ -27,7 +28,9 @@ function TimelineRangeSelector({
     );
   }
   if (range === "week") {
-    const weeks = Object.keys(data?.ranges?.week || {}).sort();
+    const weeks = weekRangeMode === "rolling"
+      ? buildRollingWeekOptions(data?.meta?.availableDates || [])
+      : Object.keys(data?.ranges?.week || {}).sort();
     return (
       <RangeDropdown
         value={selectedWeek}
@@ -46,6 +49,30 @@ function TimelineRangeSelector({
       locale={locale}
     />
   );
+}
+
+function buildRollingWeekOptions(availableDates) {
+  const dates = [...availableDates].sort();
+  const earliestDate = dates[0] || "";
+  const latestDate = dates[dates.length - 1] || "";
+  if (!latestDate) {
+    return [];
+  }
+  const options = [];
+  let cursor = latestDate;
+  while (cursor && cursor >= earliestDate) {
+    options.push(cursor);
+    cursor = offsetDateKey(cursor, -7);
+  }
+  return options;
+}
+
+function offsetDateKey(date, dayDelta) {
+  const parsed = Date.parse(`${date}T00:00:00Z`);
+  if (!Number.isFinite(parsed)) {
+    return "";
+  }
+  return new Date(parsed + (dayDelta * 24 * 60 * 60 * 1000)).toISOString().slice(0, 10);
 }
 
 function RangeDropdown({ value, options, onChange, locale }) {

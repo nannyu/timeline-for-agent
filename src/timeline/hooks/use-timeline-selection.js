@@ -8,21 +8,23 @@ function useTimelineSelection({
   selectedDate,
   selectedMonth,
   selectedWeek,
+  weekRangeMode = "calendar",
 }) {
   const [selectedCategoryId, setSelectedCategoryId] = useState("");
   const [selectedSubcategoryId, setSelectedSubcategoryId] = useState("");
 
   const currentKey = range === "day" ? selectedDate : range === "week" ? selectedWeek : selectedMonth;
-  const currentAggregate = data?.ranges?.[range]?.[currentKey] || null;
+  const rangeKey = range === "week" && weekRangeMode === "rolling" ? "rollingWeek" : range;
+  const currentAggregate = data?.ranges?.[rangeKey]?.[currentKey] || null;
   const currentTimeline = useMemo(() => {
     if (range === "day") {
       return data?.timelines?.day?.[selectedDate] || null;
     }
     if (range === "week") {
-      return data?.timelines?.week?.[selectedWeek] || null;
+      return weekRangeMode === "rolling" ? null : data?.timelines?.week?.[selectedWeek] || null;
     }
     return buildMonthTimeline(data, selectedMonth);
-  }, [data, range, selectedDate, selectedWeek, selectedMonth]);
+  }, [data, range, selectedDate, selectedWeek, selectedMonth, weekRangeMode]);
 
   const categories = currentAggregate?.categories || [];
 

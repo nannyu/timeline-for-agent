@@ -41,7 +41,8 @@ function DashboardApp() {
     range,
     selectedDate,
     selectedMonth,
-    selectedWeek,
+    selectedWeek: isMobile ? selectedDate : selectedWeek,
+    weekRangeMode: isMobile ? "rolling" : "calendar",
   });
   const currentRangeLabel = currentAggregate?.label || formatRangeSelection(range, currentKey, locale) || getTimelineText(locale, "notSelected");
 

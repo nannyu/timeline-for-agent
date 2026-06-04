@@ -783,14 +783,18 @@ input {
   gap: 6px;
   padding: 8px;
   min-width: var(--radix-select-trigger-width);
+  max-height: min(320px, calc(var(--radix-select-content-available-height) - 8px));
   border: 1px solid var(--rule-soft);
   border-radius: 16px;
   box-shadow: var(--shadow);
+  overflow: hidden;
 }
 
 .range-select-viewport {
   display: grid;
   gap: 6px;
+  max-height: inherit;
+  overflow-y: auto;
 }
 
 .range-select-option {

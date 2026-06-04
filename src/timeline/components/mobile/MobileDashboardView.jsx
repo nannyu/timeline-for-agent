@@ -21,29 +21,21 @@ function MobileDashboardView({
   selectedDate,
   selectedMonth,
   selectedSubcategoryId,
-  selectedWeek,
   setRange,
   setSelectedDate,
   setSelectedMonth,
-  setSelectedWeek,
   selectCategory,
   selectSubcategory,
   styledSubcategories,
 }) {
   const [activeTab, setActiveTab] = useState("timeline");
-  const timelineDays = useMemo(() => buildMobileRecentWeekTimeline(data, locale, selectedWeek), [data, locale, selectedWeek]);
+  const timelineDays = useMemo(() => buildMobileRecentWeekTimeline(data, locale, selectedDate), [data, locale, selectedDate]);
   const [activeDayKey, setActiveDayKey] = useState("");
 
   useEffect(() => {
-    const nextActiveDayKey = timelineDays.some((day) => day.date === selectedWeek) ? selectedWeek : "";
+    const nextActiveDayKey = timelineDays.some((day) => day.date === selectedDate) ? selectedDate : "";
     setActiveDayKey(nextActiveDayKey);
-  }, [selectedWeek, timelineDays]);
-
-  useEffect(() => {
-    if (activeTab === "timeline" && range !== "week") {
-      setRange("week");
-    }
-  }, [activeTab, range, setRange]);
+  }, [selectedDate, timelineDays]);
 
   return (
     <main className="page page-mobile">
@@ -65,26 +57,27 @@ function MobileDashboardView({
           </nav>
           <div className="mobile-range-row">
             <nav className="pill-group mobile-unit-group" aria-label={getTimelineText(locale, "selectTimeRange")}>
-              <MobileTabButton active={range === "day"} disabled={activeTab === "timeline"} onClick={() => setRange("day")}>
+              <MobileTabButton active={activeTab !== "timeline" && range === "day"} disabled={activeTab === "timeline"} onClick={() => setRange("day")}>
                 Day
               </MobileTabButton>
-              <MobileTabButton active={range === "week"} disabled={activeTab === "timeline"} onClick={() => setRange("week")}>
+              <MobileTabButton active={activeTab === "timeline" || range === "week"} disabled={activeTab === "timeline"} onClick={() => setRange("week")}>
                 Week
               </MobileTabButton>
-              <MobileTabButton active={range === "month"} disabled={activeTab === "timeline"} onClick={() => setRange("month")}>
+              <MobileTabButton active={activeTab !== "timeline" && range === "month"} disabled={activeTab === "timeline"} onClick={() => setRange("month")}>
                 Month
               </MobileTabButton>
             </nav>
             <TimelineRangeSelector
-              range={range}
+              range={activeTab === "timeline" ? "week" : range}
               selectedDate={selectedDate}
-              selectedWeek={selectedWeek}
+              selectedWeek={selectedDate}
               selectedMonth={selectedMonth}
               onDateChange={setSelectedDate}
-              onWeekChange={setSelectedWeek}
+              onWeekChange={setSelectedDate}
               onMonthChange={setSelectedMonth}
               data={data}
               locale={locale}
+              weekRangeMode="rolling"
             />
           </div>
           {activeTab === "timeline" && timelineDays.length && activeDayKey ? (

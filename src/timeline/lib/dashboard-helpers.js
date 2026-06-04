@@ -173,7 +173,7 @@ function buildMobileRecentWeekTimeline(data, locale = "en", anchorDate = "") {
   if (!anchorDate || !allDates.includes(anchorDate)) {
     return [];
   }
-  const dates = allDates.filter((date) => date <= anchorDate).slice(-7);
+  const dates = Array.from({ length: 7 }, (_, index) => offsetDateInTimezone(anchorDate, index - 6, timezone));
   const resolvedLocale = resolveTimelineLocale(locale);
   return dates.map((date) => {
     const dayTimeline = data?.timelines?.day?.[date];

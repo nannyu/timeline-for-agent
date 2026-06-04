@@ -36,6 +36,7 @@ function buildTimelineViews(state, metaOverrides = {}, options = {}) {
   const rangeData = {
     day: buildDayRangeData(dates, state, categoryMap, eventNodeMap),
     week: buildWeekRangeData(weekRanges, state, categoryMap, eventNodeMap),
+    rollingWeek: buildRollingWeekRangeData(dates, state, categoryMap, eventNodeMap),
     month: buildMonthRangeData(dates, state, categoryMap, eventNodeMap),
   };
 
@@ -163,6 +164,31 @@ function buildWeekRangeData(weekRanges, state, categoryMap, eventNodeMap) {
       eventNodeMap,
       allDates: weekRange.dates,
       timelineDates: weekRange.dates,
+    });
+  }
+  return output;
+}
+
+function buildRollingWeekRangeData(dates, state, categoryMap, eventNodeMap) {
+  const availableDates = new Set(dates);
+  const output = {};
+  for (const anchorDate of dates) {
+    const rollingDates = Array.from({ length: 7 }, (_, index) => offsetDateInTimezone(anchorDate, index - 6, activeTimezone));
+    const events = [];
+    for (const date of rollingDates) {
+      if (availableDates.has(date)) {
+        events.push(...(state.facts[date]?.events || []));
+      }
+    }
+    output[anchorDate] = buildRangeAggregate({
+      key: anchorDate,
+      label: activeLocale === "zh-CN" ? `${anchorDate} ${getTimelineText(activeLocale, "weekOf")}` : `${getTimelineText(activeLocale, "weekOf")} ${anchorDate}`,
+      unit: "day",
+      events,
+      categoryMap,
+      eventNodeMap,
+      allDates: rollingDates,
+      timelineDates: rollingDates,
     });
   }
   return output;
